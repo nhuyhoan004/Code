@@ -1,0 +1,256 @@
+/*
+file name : XOgame.cpp
+playable 3x3 tic tac toe
+ 
+...
+.o.
+..x
+ 
+Version 1
+1.Ai engine
+	+ state representation : vector<vector<char>> (3x3)
+	+ checking if game is end
+	+ detect winner or draw if game end
+	+ render (text screen)
+	+ valid moves
+		+ detect current player
+		+ calculate valid moves 
+	+ calculate state score
+		+ final state score
+		+ not-final state score
+	+ calculate best move
+2.User interface
+ 	+ asking x or o
+ 	+ input move cordinate start from 0
+ 	+ response if illegal move
+	+ response game result when end
+	+ print current game
+	+ print machine's move
+*/
+ 
+#include<iostream>
+#include<vector>
+using namespace std;
+ 
+//  state representation
+typedef vector<vector<char>> GameState;
+ 
+// checking if row r lead to win/lose
+bool WinRow(GameState &game,int r){
+	if (game[r][0] == '.') return false;
+	for (int i = 0;i < 3;i++)
+		if (game[r][i] != game[r][0]) return false;
+	return true;
+}
+ 
+// checking if column c lead to win/lose
+bool WinCol(GameState &game,int c){
+	if (game[0][c] == '.') return false;
+	for (int i = 0;i < 3;i++)
+		if (game[i][c] != game[0][c]) return false;
+	return true;	
+}
+ 
+ 
+// checking if game is end
+// input : GameState
+// output : true/faslse if game end/not-end
+bool IsEnd(GameState &game){
+ 
+	for (int i = 0;i < 3;i++)
+		if (WinRow(game,i) || WinCol(game,i)) return true;		
+ 
+	if (game[0][0] == game[1][1] && game[0][0] == game[2][2] && game[2][2] != '.') return true;
+	if (game[0][2] == game[1][1] && game[0][2] == game[2][0] && game[2][0] != '.') return true;
+ 
+	for (int i = 0;i < 3;i++)
+		for (int j = 0;j < 3;j++)
+			if (game[i][j] == '.') return false;
+ 
+	return true;
+}
+ 
+//detect winner or draw if game end
+//input : GameState
+//return : x if x wins   o if o wins   . if draw   
+char Winner(GameState &game){
+	for (int i = 0;i < 3;i++){
+		if (WinRow(game,i)) return game[i][0];
+		if (WinCol(game,i)) return game[0][i];
+	}
+ 
+	if (game[0][0] == game[1][1] && game[0][0] == game[2][2] && game[2][2] != '.') return game[0][0];
+	if (game[0][2] == game[1][1] && game[0][2] == game[2][0] && game[2][0] != '.') return game[0][2];
+ 
+	return '.';
+}
+ 
+//render (text screen)
+//input : GameState
+//output : print to text screen 
+/*
+...
+.x.
+..o
+*/
+void PrintGame(GameState &game){
+	for (int i = 0;i < 3;i++){
+		for (int j = 0;j < 3;j++) cout<<game[i][j];
+		cout<<endl;
+	}
+}
+ 
+//detect current player
+//input : GameState
+//output : x if x is current      else o
+char CurrentPlayer(GameState &game){
+	int cntx = 0,cnto = 0;
+	for (int i = 0;i < 3;i++)
+		for (int j = 0;j < 3;j++){
+			if (game[i][j] == 'x') cntx++;
+			else if (game[i][j] == 'o') cnto++;
+		}
+	if (cntx == cnto) return 'x';
+	else return 'o';
+}
+ 
+//copy current game
+void copyGame(GameState &nw_game,GameState &game){
+	for (int i = 0;i < 3;i++)
+		for (int j = 0;j < 3;j++)
+			nw_game[i][j] = game[i][j];
+ 
+	//return nw_game;
+}
+ 
+//const GameState& operator= (GameState& g, const GameState& other)
+//{
+//	for (int i = 0;i < 3;i++)
+//		for (int j = 0;j < 3;j++)
+//			g[i][j] = other[i][j];
+//	return g;
+//}
+ 
+//calculate valid moves
+//input : GameState
+//output : vector<GameState>
+vector<GameState> ValidMoves(GameState &game){
+	char player = CurrentPlayer(game);
+	int cntdot = 0;
+	for (int i = 0;i < 3;i++)
+		for (int j = 0;j < 3;j++) {
+			cntdot += (game[i][j] == '.');	
+		}
+ 
+	vector<GameState> result(cntdot, GameState(3, vector<char>(3,'.')));
+	int k = 0;
+	for (int i = 0;i < 3;i++)
+		for (int j = 0;j < 3;j++){
+			if (game[i][j] == '.'){
+			    copyGame(result[k], game);
+				result[k][i][j] = player; 
+				k++;
+				//result.push_back(nw_game);
+			}
+		}
+	return result;
+}
+ 
+//Final State Score
+//input : GameState
+//output : 1 if x wins    0 if draw     -1 if o wins
+// only called when IsEnd is true
+int FinalStateScore(GameState &game){
+ 
+	char winner = Winner(game);
+	switch (winner){
+		case 'x' : return 1;
+		case 'o' : return -1;
+		default : return 0;
+	}
+}
+ 
+//not-final state score
+//input : GameState
+//output : value of GameState
+//algo : x tries to maximize final score, o tries to minimize 
+//minimax algorithm
+int StateValue(GameState &game){
+	if (IsEnd(game)) return FinalStateScore(game);
+	vector<GameState> moves = ValidMoves(game);
+	const int NO_VALUE = -100;
+	char player = CurrentPlayer(game);
+	int result = NO_VALUE;
+	for (auto m : moves){
+		int score = StateValue(m);
+		if (player == 'x')
+			if (result == NO_VALUE || result < score) result = score;
+		if (player == 'o')
+			if (result == NO_VALUE || result > score) result = score;
+	} 
+	return result;
+}
+ 
+//calculate best moves
+//input : GameState
+//output : move (pair (i,j) represent move coordinate)
+//algorithm : generate valid move -> calculate each's score -> choose best score base on player
+pair<int,int> BestMove(GameState &game){
+	vector<GameState> moves = ValidMoves(game);
+	const int NO_VALUE = -100;
+	char player = CurrentPlayer(game);
+	int bestScore = NO_VALUE;
+	GameState bestMove (3,vector<char>(3,'.'));
+	for (auto m : moves){
+		int score = StateValue(m);
+		if (player == 'x')
+			if (bestScore == NO_VALUE || bestScore < score){
+				bestScore = score; 
+				copyGame(bestMove,m);
+			} 
+		if (player == 'o')
+			if (bestScore == NO_VALUE || bestScore > score){
+				bestScore = score;
+				copyGame(bestMove,m);
+			} 		 
+	} 	
+	for (int i = 0;i < 3;i++)
+		for (int j = 0;j < 3;j++){
+			if (bestMove[i][j] != game[i][j])
+				return make_pair(i,j);
+		}
+	return make_pair(-1,-1);
+}
+ 
+int main(){
+	GameState g(3,vector<char>(3,'.'));
+	g[0][0] = 'x'; g[0][1] = 'o'; g[0][2] = 'o';
+	g[1][0] = 'x'; g[1][1] = '.'; g[1][2] = '.';
+	g[2][0] = 'o'; g[2][1] = 'x'; g[2][2] = '.';
+	// test IsEnd()
+	cout<<IsEnd(g)<<" "<<Winner(g)<<endl; 
+	PrintGame(g); cout<<endl;
+	cout<<CurrentPlayer(g)<<endl;
+	GameState nw_game(3,vector<char>(3,'.'));
+	copyGame(nw_game,g);
+	PrintGame(nw_game);
+ 
+	//g[2][1] = 'o';
+	//PrintGame(nw_game); cout<<endl;
+	PrintGame(g); 
+	cout<<"1------------------------------"<<endl; //return 0;
+	vector<GameState> moves = ValidMoves(g); 
+	for (auto m : moves){
+		PrintGame(m);
+		cout<<endl;
+	}
+	//return 0;
+	cout<<"2------------------------------"<<endl;
+	if (IsEnd(g))
+		cout<<FinalStateScore(g)<<endl;
+	cout<<"3------------------------------"<<endl;
+	cout<<StateValue(g)<<endl;
+	pair<int,int> now = BestMove(g);
+	cout<<now.first<<" "<<now.second<<endl;
+	return 0;
+}
